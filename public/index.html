@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sub2 降智检测</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <div id="notice" role="status" hidden></div>
+  <main id="workspace" class="workspace">
+    <header class="page-header"><div><span class="eyebrow">SUB2 · DEGRADATION MONITOR</span><h1>降智检测控制台</h1><p id="connected-origin" class="muted">填写连接信息，获取账号后保存并开始检测。</p></div><button id="logout" class="secondary" hidden>停止并清除 Key</button></header>
+    <section class="card connection-card">
+      <div class="section-heading"><div><h2>Sub2 连接</h2><p id="connection-status" class="muted" role="status">尚未连接</p></div></div>
+      <form id="login-form">
+        <label>Sub2 站点地址<input id="origin" name="origin" type="url" placeholder="https://sub2.example.com" required autocomplete="url"></label>
+        <label>管理员 Key<input id="admin-key" name="adminKey" type="password" placeholder="输入 Sub2 管理员 API Key" required autocomplete="off"></label>
+        <button id="login-button" type="submit">获取账号</button>
+      </form>
+      <p class="hint">Key 只保存在后端内存中。关闭网页后检测继续；点击“停止并清除 Key”结束检测。后端服务停止后需要重新输入。</p>
+    </section>
+    <p id="upstream-client" class="muted"></p>
+    <section class="summary-grid" aria-label="降智检测队列概况">
+      <div class="stat"><span>运行中 / 并发</span><strong id="running-count">0 / 2</strong></div>
+      <div class="stat"><span>等待中 / 上限</span><strong id="queued-count">0 / 32</strong></div>
+      <div class="stat"><span>队列丢弃</span><strong id="dropped-count">0</strong></div>
+      <div class="stat"><span>下轮检测</span><strong id="next-run">已暂停</strong></div>
+    </section>
+    <section class="card">
+      <div class="section-heading"><div><h2>降智设置</h2><p class="muted">检测设置单独保存。开启后，后台按已保存的账号选择定时执行。</p></div><span id="unsaved" class="badge warn" hidden>设置未保存</span></div>
+      <form id="settings-form">
+        <div class="settings-grid">
+          <label class="switch-label"><input name="enabled" type="checkbox">启用定时检测</label>
+          <label>模型<select name="model"><option>gpt-6.1-sol</option><option>gpt-6-sol</option><option value="gpt-6-astra">gpt-6-Astra</option></select></label>
+          <label>推理强度<select name="reasoningEffort"><option value="low">低</option><option value="medium">中</option><option value="high" selected>高</option></select></label>
+          <label>全量周期（秒）<input name="intervalSeconds" type="number" value="300" min="30" max="86400" step="1" required></label>
+          <label>并发请求数<input name="concurrency" type="number" value="2" min="1" max="50" step="1" required></label>
+          <label>等待队列上限<input name="queueLimit" type="number" value="32" min="0" max="500" step="1" required></label>
+          <label>首字超时（ms）<input name="firstTextTimeoutMs" type="number" value="60000" min="1000" max="120000" step="1000" required></label>
+          <label>完整响应超时（ms）<input name="totalTimeoutMs" type="number" value="120000" min="1000" max="300000" step="1000" required></label>
+        </div>
+        <div class="actions"><button id="save-settings" type="submit" disabled>保存检测设置</button></div>
+        <p class="hint">保存检测设置只更新模型、周期、并发、队列和超时参数。已开启的定时检测会继续使用新设置。</p>
+      </form>
+      <p class="hint">并发数 + 等待上限必须能容纳全部已选账号。检测仅判断 Q01–Q15 是否均有回答且不是“不清楚”，不校验答案正确性。</p>
+      <p id="scheduler-error" class="error-text" hidden></p>
+    </section>
+    <section class="card">
+      <div class="section-heading"><div><h2>账号管理</h2><p class="muted">支持 OpenAI API Key、OAuth 账号。完整回答判定为降智时，自动关闭该账号在 Sub2 的调度。</p></div><button id="refresh-accounts" class="secondary">重新获取账号</button></div>
+      <div class="selection-bar">
+        <strong id="selected-count" aria-live="polite">已选 0 个 / 已保存 0 个</strong>
+        <span id="selection-status" class="muted" role="status"></span>
+        <button id="save-selection" type="button" disabled>保存账号选择</button>
+        <button id="start-monitor" type="button" disabled>保存并开始检测</button>
+        <button id="run-selected" type="button" class="secondary">立即检测已保存账号</button>
+      </div>
+      <p class="hint">勾选后点击“保存账号选择”生效。全选仅作用于当前筛选列表，隐藏的已选账号会保留。</p>
+      <div class="filters"><input id="search" type="search" placeholder="搜索账号名称或 ID" aria-label="搜索账号"><label class="switch-label"><input id="eligible-only" type="checkbox">仅看可检测账号</label><span id="account-count" class="muted"></span></div>
+      <div class="table-wrap"><table><thead><tr><th><input id="select-all" type="checkbox" aria-label="选择当前筛选下的可检测账号"></th><th>账号</th><th>平台 / 类型</th><th>账号状态</th><th>检测结果</th><th>检测时间</th><th>操作</th></tr></thead><tbody id="account-rows"></tbody></table></div>
+    </section>
+    <section class="card"><div class="section-heading"><h2>降智探测队列</h2><span class="muted">每 2 秒刷新 · 已完成任务保留最多 10 分钟 / 200 条</span></div><p class="hint">同一账号已有等待或运行任务时会去重；按并发数执行，超过等待上限会拒绝入队；退出或暂停时取消等待任务，运行中的请求完成或中止。</p><div class="table-wrap"><table><thead><tr><th>账号</th><th>状态</th><th>入队时间</th><th>开始时间</th><th>完成时间</th><th>结果 / 错误</th></tr></thead><tbody id="queue-rows"></tbody></table></div></section>
+    <footer>Sub2 Degradation Monitor · 配置与最近结果保存在本项目 data 目录</footer>
+  </main>
+  <dialog id="result-dialog"><div class="section-heading"><h2 id="result-title">检测详情</h2><button id="close-result" class="secondary" aria-label="关闭检测详情">关闭</button></div><pre id="result-content"></pre></dialog>
+</body>
+</html>

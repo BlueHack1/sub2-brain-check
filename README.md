@@ -42,6 +42,45 @@ npm test
 npm run type-check
 ```
 
+## Docker 部署
+
+本机安装并启动 Docker Desktop 后，在项目目录执行：
+
+```powershell
+git clone https://github.com/BlueHack1/sub2-brain-check.git
+cd sub2-brain-check
+docker compose up -d --build
+docker compose ps
+```
+
+打开 <http://127.0.0.1:3100>。默认端口只绑定本机回环地址；可用 `PORT` 修改宿主端口，用 `BIND_ADDRESS` 修改绑定地址。容器以非 root 用户运行，内置 `/api/health` 健康检查，Docker 启动后会按 `unless-stopped` 策略恢复容器。停止服务：
+
+```powershell
+docker compose down
+```
+
+检测设置、账号选择和最近结果保存在 Compose 管理的 `sub2-brain-check-data` 卷中，实际卷名前会带 Compose 项目前缀。删除容器不会删除这个卷；如需连数据一起清除，执行 `docker compose down -v`。管理员 Key 和上游账号凭据只保存在容器进程内存中，容器重建或重启后需要重新输入管理员 Key；此前已开启的定时检测会在输入 Key 后恢复。
+
+容器内的 `127.0.0.1` 指向容器自身。Docker Desktop 下访问宿主机的 Sub2 或代理时，使用 `host.docker.internal`，例如 `http://host.docker.internal:8080`。若 Sub2 导出的账号代理也是宿主机回环地址，同样需要改成容器可访问的地址，或设置下面的统一代理。
+
+如需使用统一上游代理，在启动前设置环境变量：
+
+```powershell
+$env:UPSTREAM_PROXY_URL = "http://host.docker.internal:7890"
+docker compose up -d --build
+```
+
+查看日志、重启及更新：
+
+```powershell
+docker compose logs --tail=100 -f
+docker compose restart
+git pull
+docker compose up -d --build
+```
+
+可在 Linux 构建环境运行测试：`docker build --target test -t sub2-brain-check:test .`。正常运行镜像仅保留生产依赖、编译产物和页面，不包含测试文件或本机配置数据。
+
 ## 使用流程
 
 1. 在检测页填写 Sub2 地址和管理员 Key，获取账号列表。

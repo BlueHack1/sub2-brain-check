@@ -1,0 +1,22 @@
+services:
+  sub2-brain-check:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: sub2-brain-check:local
+    container_name: sub2-brain-check
+    restart: unless-stopped
+    init: true
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${PORT:-3100}:3100"
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3100
+      DATA_DIR: /app/data
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      UPSTREAM_PROXY_URL: ${UPSTREAM_PROXY_URL:-}
+    volumes:
+      - sub2-brain-check-data:/app/data
+
+volumes:
+  sub2-brain-check-data:

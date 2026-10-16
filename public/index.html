@@ -60,7 +60,7 @@
       <div class="table-wrap"><table><thead><tr><th><input id="select-all" type="checkbox" aria-label="选择当前筛选下的可检测账号"></th><th>账号</th><th>平台 / 类型</th><th>账号状态</th><th>检测结果</th><th>检测时间</th><th>操作</th></tr></thead><tbody id="account-rows"></tbody></table></div>
     </section>
     <section class="card"><div class="section-heading"><h2>降智探测队列</h2><span class="muted">每 2 秒刷新 · 已完成任务保留最多 10 分钟 / 200 条</span></div><p class="hint">同一账号已有等待或运行任务时会去重；按并发数执行，超过等待上限会拒绝入队；退出或暂停时取消等待任务，运行中的请求完成或中止。</p><div class="table-wrap"><table><thead><tr><th>账号</th><th>状态</th><th>入队时间</th><th>开始时间</th><th>完成时间</th><th>结果 / 错误</th></tr></thead><tbody id="queue-rows"></tbody></table></div></section>
-    <footer>Sub2 Degradation Monitor · 配置与最近结果保存在本项目 data 目录</footer>
+    <footer>Sub2 Degradation Monitor · 配置与最近结果保存在本项目 data 目录 · <a href="https://github.com/BlueHack1/sub2-brain-check" target="_blank" rel="noopener noreferrer">GitHub: BlueHack1/sub2-brain-check</a> · © BlueHack1</footer>
   </main>
   <dialog id="result-dialog"><div class="section-heading"><h2 id="result-title">检测详情</h2><button id="close-result" class="secondary" aria-label="关闭检测详情">关闭</button></div><pre id="result-content"></pre></dialog>
 </body>

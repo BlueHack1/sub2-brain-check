@@ -1,82 +1,95 @@
-# Sub2 Degradation Monitor
+﻿# Sub2 Brain Check
 
-从当前 Balance Monitor 项目抽出的独立降智检测项目，可单独复制整个目录、安装和运行。
+Sub2 降智检测工具。项目从原有 Balance Monitor 中抽取为独立 Node.js 服务，用 Sub2 管理员 API Key 获取账号和当前凭据，再由本服务直接请求 OpenAI 上游，判断账号返回是否完整，并在发现降智时关闭该账号的 Sub2 调度。
 
-## 启动
+## 功能
+
+- 支持 OpenAI API Key 和 OpenAI OAuth 账号。
+- 只保留 GPT 检测模型，可配置推理强度、检测周期、并发数、等待队列上限和超时。
+- 通过管理员 Key 获取账号列表和账号当前凭据。
+- API Key 按账号能力选择 Responses 或 Chat Completions 请求。
+- OAuth 按 Sub2 使用的 Codex 请求方式访问上游，使用当前 access token、账号 ID、客户端身份和 `store: false`。
+- 不调用 Sub2 的测试接口，不主动刷新 OAuth token，也不在 401 后自动重试；下一轮检测会重新从管理员接口读取凭据。
+- 检测结果沿用原项目的 15 个问题和判定规则：回答完整且不含“没看清楚”等不确定回答为通过，缺题或不确定回答为疑似降智。
+- 检测结果为降智时，调用 Sub2 管理员接口关闭该账号调度，并在页面显示关闭结果。
+- 页面关闭后后台检测继续运行；Node 服务重启后 Key 会清除，重新输入有效 Key 后会按本地保存的启用状态自动恢复。
+- 同一账号的等待或运行任务不会重复入队，队列有并发限制、容量限制、取消和历史清理。
+
+## 快速开始
 
 需要 Node.js 20.19 或更高版本，推荐 Node.js 22 LTS。
 
 ```powershell
-cd E:\workspace\vscode\nodejs\balance-monitor\sub2-degradation-monitor
 npm install
 npm run build
 npm start
 ```
 
-打开 <http://127.0.0.1:3100>。也可以双击 `start-local.bat`，首次使用会安装依赖并构建。
+打开 <http://127.0.0.1:3100>，填写 Sub2 地址和管理员 API Key，点击“获取账号”。也可以直接运行 `start-local.bat`。
 
-开发模式：`npm run dev`。测试：`npm test`。类型检查：`npm run type-check`。
+开发模式：
 
-## 使用
+```powershell
+npm run dev
+```
 
-1. 连接信息与检测设置都在同一个检测页。输入 Sub2 站点地址和管理员 API Key，点击“获取账号”。成功后 Key 转存后端内存并清空输入框；如果之前保存的定时检测是开启状态，重新输入 Key 后会自动恢复后台检测。
-2. 在账号管理中勾选需要检测的账号。可按名称或 ID 搜索，或筛选可检测账号。
-3. 设置模型、推理强度、周期、并发、等待上限和超时，点击“保存检测设置”只保存检测参数。账号区实时显示“已选 N 个 / 已保存 M 个”。
-4. 在账号区点击“保存并开始检测”会同时保存当前参数与勾选、立即执行一轮，然后按周期持续运行；“保存账号选择”只保存勾选；“立即检测已保存账号”只执行一轮。每行“检测”可单独测试。重新获取账号保留仍可检测的勾选，筛选列表的全选不会清除隐藏选择。取消“启用定时检测”并保存设置可暂停定时任务，保留 Key。
-5. 队列显示等待、运行、完成、失败和取消状态；账号行“详情”可查看最近一次完整回复。
+验证项目：
 
-仅保留 OpenAI 的 API Key 和 OAuth 账号。检测前使用管理员 Key 从 Sub2 单账号导出接口读取当前凭据，随后由本服务直接请求上游，不调用 Sub2 的 `/test`。本服务不使用 refresh token、不调用刷新接口，也不在 401 后自动重试。
+```powershell
+npm test
+npm run type-check
+```
 
-API Key 按账号能力设置选择 Responses 或 Chat Completions，使用配置的 HTTPS `base_url`；OAuth 参照 Sub2 源码请求 `https://chatgpt.com/backend-api/codex/responses`，携带 access token、ChatGPT 账号 ID、配套客户端身份头和 `store:false`。两者均发送十五题提示词和设置的推理强度，并应用模型映射和账号代理。账号自定义请求头仅对 API Key 生效，OAuth 不应用；OAuth 的账号自定义 UA 按官方身份配对规则处理。Agent Identity 签名账号和影子账号暂不支持。
+## 使用流程
 
-Responses 检测使用管理员接口 `GET /api/v1/admin/settings` 读取连接站点的客户端设置，版本优先级为面板指定值 → Sub2 自动同步值 → 官方内置默认值，同时重建 UA、originator、version。设置缓存 60 秒，“重新获取账号”后下次检测重读；不会自行查询 Codex 发布版本或修改 Sub2 设置。设置接口不可用时保留上次设置，首次则使用本次核对源码的内置值 `0.146.0`，页面显示回退原因。低于官方最低版本门槛时也按官方规则回退。页面显示的是默认客户端，OAuth 账号的有效自定义 UA 可改变客户端名和平台后缀，版本仍跟随站点设置。
+1. 在检测页填写 Sub2 地址和管理员 Key，获取账号列表。
+2. 勾选需要检测的账号。页面会显示当前勾选数量和已保存数量。
+3. 在降智设置中选择模型、推理强度、周期、并发和超时，点击“保存检测设置”。该按钮只保存检测参数。
+4. 在账号区域点击“保存并开始检测”，保存当前账号选择并立即执行一轮检测；之后按周期自动执行。
+5. “保存账号选择”只保存勾选；“立即检测已保存账号”只执行一轮，不改变定时开关。
+6. 点击“停止并清除 Key”会停止调度、取消等待任务并清除后端内存中的凭据。
 
-源码核对记录见 [流程对照](docs/sub2-official-account-test-flow.md)。默认 OpenAI OAuth 不启用 Sub2 的 Anthropic 专用 uTLS 功能；Node 与 Go 的原生传输不保证相同。
+## 配置
 
-## 配置与执行行为
-
-无需 MySQL、Redis 或原项目服务。每个 Sub2 站点的配置、账号选择和最近结果独立保存在 `data/<站点地址的 SHA-256>.json`。文件通过临时文件替换写入；每个账号只保留最近结果。队列在内存中运行，完成记录最多保留 10 分钟 / 200 条。
-
-管理员 Key 和读取到的上游凭据仅保存在后端内存中，不写入配置文件、不返回给前端、不使用浏览器存储。点击“停止并清除 Key”会停止调度、取消等待与运行中的请求并清除凭据。关闭网页不影响已开启的后台检测，不再因 12 小时无访问而自动停止。服务进程退出或重启会清除内存中的 Key，需重新输入；如果本地已保存的定时开关为开启状态，重新输入 Key 后会自动恢复检测。浏览器控制会话 Cookie 有效期 30 天，Cookie 到期或清理不会清除后台 Key、停止已运行任务；重新输入有效 Key 可重新建立控制会话。
-
-这是单管理员、单活动站点工具。同一个服务上再次登录会替换之前的会话。完整响应被判定为降智时，调用 `POST /api/v1/admin/accounts/{id}/schedulable`（`{"schedulable":false}`）关闭该账号在 Sub2 的调度；失败或未确认会明确显示。本工具不会自动恢复调度。
-
-同一账号的等待或运行任务会去重。并发数与等待上限之和必须容纳所有勾选账号；超过等待上限的请求会明确拒绝。全量周期按每轮启动时间计算，上一轮仍在运行的账号不会重复提交。关闭定时开关会取消等待任务，已运行请求会完成；退出登录则中止全部请求。
-
-## 检测判定
-
-保留原项目的知识测试提示词与判定规则：Q01–Q15 都有非空答案，且答案不为“不清楚”时显示“通过”；缺题或回答“不清楚”时显示“疑似降智”。HTTP、网络、超时和响应错误显示“检测异常”。**此规则只判断回答完整性，不核验答案事实正确性，也不能证明模型的真实身份。**
-
-必须收到协议完成信号才执行判定。Responses 提前 EOF、`[DONE]`、失败或未完成事件，以及 Chat Completions 截断，都作为检测异常处理，不触发关闭调度。
-
-## 可选环境变量
-
-复制 `.env.example` 为 `.env` 后按需设置。本项目从自己的工作目录读取 `.env`，不会读取原项目配置。
+复制 `.env.example` 为 `.env` 后按需修改：
 
 | 变量 | 默认值 | 说明 |
 | --- | --- | --- |
 | `HOST` | `127.0.0.1` | 服务监听地址 |
 | `PORT` | `3100` | 服务端口 |
-| `DATA_DIR` | `./data` | 配置和结果目录 |
-| `UPSTREAM_PROXY_URL` | 空 | 显式设置时作为 Sub2 与上游请求的统一 HTTP 代理，优先于账号代理；留空时检测使用账号的 HTTP/HTTPS/SOCKS 代理 |
-| `COOKIE_SECURE` | `false` | 使用 HTTPS 部署时设置为 `true` |
+| `DATA_DIR` | `./data` | 本地配置和结果目录 |
+| `UPSTREAM_PROXY_URL` | 空 | 统一上游代理，可使用 HTTP、HTTPS 或 SOCKS 代理 |
+| `COOKIE_SECURE` | `false` | HTTPS 部署时设置为 `true` |
 
-前端静态页面与 API 由同一个 Fastify 服务提供。远程访问可通过 HTTPS 反向代理到此服务，保留原始 `Host` 请求头。
+## 数据和凭据
 
-## 目录和来源
+每个 Sub2 地址对应一个 `data/<地址 SHA-256>.json` 文件，保存检测设置、账号选择和最近检测结果。目录权限为 700，文件权限为 600，并使用临时文件替换写入。
+
+管理员 Key、Sub2 返回的 API Key、OAuth access token 和其他上游凭据只保存在后端进程内存中，不写入配置文件、不放入浏览器存储，也不会返回给前端。Node 服务退出或重启后需要重新输入管理员 Key。
+
+## 检测和队列规则
+
+每一轮开始时先通过管理员接口刷新账号列表，再为选中的可检测账号读取当前凭据并入队。刷新由 Sub2 负责，工具本身不会调用 token 刷新接口。
+
+队列采用有界 FIFO：同一账号存在等待或运行任务时直接复用已有任务；超过等待上限的任务会被拒绝；停止定时检测会取消等待任务，正在执行的请求会完成或被服务关闭中止。完成记录最多保留 10 分钟或 200 条。
+
+## 项目结构
 
 ```text
-src/app.ts                 登录会话、配置和检测 API
-src/monitor.ts             账号选择、定时调度与生命周期
-src/queue.ts               有界 FIFO 队列、并发限制与账号去重
-src/settings.ts            原项目的设置默认值、范围与容量校验
-src/assessment.ts          原项目的降智提示词与回答判定
-src/probe.ts               从原项目提取的 Responses / Chat Completions 检测
-src/first-text-parser.ts   原项目的响应解析器
-src/upstream.ts            独立 Sub2 管理员 Key 客户端
-src/store.ts               本地配置与最近检测结果
-public/                    登录、账号、设置、队列与检测详情页面
-test/                      使用模拟 Sub2 / 模型接口验证流程
+src/app.ts                 登录会话、HTTP API 和静态页面
+src/monitor.ts             账号刷新、定时调度和检测生命周期
+src/queue.ts               并发限制、账号去重和等待队列
+src/settings.ts            设置默认值和校验
+src/assessment.ts          降智检测问题和判定规则
+src/probe.ts               Responses / Chat Completions 检测请求
+src/upstream.ts            Sub2 管理员 API 和账号凭据读取
+src/store.ts               本地设置与检测结果存储
+public/                    页面、脚本和样式
+test/                      API、队列、OAuth 和前端状态测试
+docs/                      Sub2 官方账号测试流程对照记录
 ```
 
-提取来源为原项目 `backend/src/upstream/first-text.ts`、`first-text-parser.ts` 以及 `backend/src/accounts/degradation-check-*`；登录、存储和页面已适配为独立项目。运行时不引用原项目代码或凭据。
+## 安全边界
+
+本工具面向单管理员、单活跃 Sub2 站点使用。管理员 Key 只用于读取账号和凭据，以及在降智后关闭账号调度；工具不会自动恢复已关闭的账号调度，也不会把凭据提交到第三方服务。通过 HTTPS 反向代理对外提供服务时，应启用 `COOKIE_SECURE=true` 并限制访问来源。
+

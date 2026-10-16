@@ -2,6 +2,20 @@
 
 Sub2 降智检测工具。项目从原有 Balance Monitor 中抽取为独立 Node.js 服务，用 Sub2 管理员 API Key 获取账号和当前凭据，再由本服务直接请求 OpenAI 上游，判断账号返回是否完整，并在发现降智时关闭该账号的 Sub2 调度。
 
+## 界面预览
+
+### 检测控制台
+
+![检测控制台](docs/screenshots/console-overview.png)
+
+### 账号管理与检测队列
+
+![账号管理与检测队列](docs/screenshots/account-queue.png)
+
+### 检测详情
+
+![检测详情](docs/screenshots/result-detail.png)
+
 ## 功能
 
 - 支持 OpenAI API Key 和 OpenAI OAuth 账号。
